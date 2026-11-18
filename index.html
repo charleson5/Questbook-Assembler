@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>GTNH 2.9.0 Questbook</title>
+  <style>
+    :root {
+      --bg-canvas: #121214;
+      --bg-panel: #19191c;
+      --bg-card: #212126;
+      --bg-hover: #2a2a30;
+      --border: #2e2e36;
+      --border-strong: #42424d;
+      --text-main: #ececef;
+      --text-muted: #9898a3;
+      --text-dim: #666670;
+      --accent: #d97706;
+      --accent-soft: rgba(217, 119, 6, 0.14);
+      --green: #16a34a;
+      --green-soft: rgba(22, 163, 74, 0.15);
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font-sans);
+      background: var(--bg-canvas);
+      color: var(--text-main);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Left Navigation Rail */
+    #nav-rail {
+      width: 320px;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      z-index: 10;
+      flex-shrink: 0;
+    }
+
+    .rail-header {
+      padding: 16px 18px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .rail-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .rail-tag {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .search-wrap {
+      position: relative;
+      margin-bottom: 8px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 8px 34px 8px 10px;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--text-main);
+      font-size: 0.84rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input[type="text"]:focus { border-color: var(--border-strong); }
+
+    .kbd-hint {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+      padding: 1px 5px;
+      border-radius: 3px;
+      pointer-events: none;
+    }
+
+    .filter-row {
+      display: flex;
+      gap: 6px;
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .chapter-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .ch-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.84rem;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+      gap: 8px;
+    }
+
+    .ch-item:hover { background: var(--bg-hover); color: var(--text-main); }
+    .ch-item.active {
+      background: var(--bg-card);
+      color: var(--text-main);
+      font-weight: 500;
+      border: 1px solid var(--border);
+    }
+
+    .ch-num {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      width: 22px;
+      flex-shrink: 0;
+    }
+
+    .ch-name {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .ch-icon {
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+
+    .ch-count {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-dim);
+    }
+
+    /* Search Results Overlay inside Rail */
+    #global-results {
+      display: none;
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .res-item {
+      padding: 8px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+    }
+    .res-item:hover { background: var(--bg-hover); }
+    .res-title { font-size: 0.84rem; font-weight: 500; margin-bottom: 2px; }
+    .res-sub { font-size: 0.74rem; color: var(--text-muted); }
+
+    /* Main Interactive Canvas */
+    #canvas-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      cursor: grab;
+      user-select: none;
+      background-color: var(--bg-canvas);
+      background-image: radial-gradient(#24242b 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+    #canvas-wrap:active { cursor: grabbing; }
+
+    /* Top Canvas Toolbar */
+    #canvas-hud {
+      position: absolute;
+      top: 14px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .hud-pill {
+      pointer-events: auto;
+      background: rgba(25, 25, 28, 0.92);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.82rem;
+    }
+
+    .hud-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 4px 9px;
+      border-radius: 4px;
+      font-size: 0.78rem;
+      cursor: pointer;
+    }
+    .hud-btn:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+    .hud-btn.active { background: var(--accent-soft); border-color: var(--accent); color: #fbbf24; }
+
+    /* Bottom Legend Bar */
+    #canvas-footer {
+      position: absolute;
+      bottom: 14px;
+      left: 16px;
+      background: rgba(25, 25, 28, 0.9);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 12px;
+      display: flex;
+      gap: 14px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    .leg-item { display: flex; align-items: center; gap: 6px; }
+    .swatch { width: 10px; height: 10px; border-radius: 2px; border: 1.5px solid; }
+
+    /* SVG Nodes & Edges */
+    .node { cursor: pointer; transition: opacity 0.12s; }
+    .node .shape { fill: #1c1c21; stroke: #4b4b57; stroke-width: 1.75; }
+    .node:hover .shape { stroke: #a1a1aa; fill: #24242b; }
+    .node.root .shape { stroke: #3f624d; }
+    .node.main .shape { stroke: #926624; stroke-width: 2.25; }
+    .node.done .shape { fill: #14261c; stroke: #22c55e; }
+    .node.selected .shape { fill: #292015; stroke: #f59e0b; stroke-width: 3; }
+    .node.dimmed { opacity: 0.18; }
+    .node text { font-family: var(--font-sans); pointer-events: none; }
+    .node .quest-icon {
+      image-rendering: auto;
+      pointer-events: none;
+    }
+    .q-title-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    .q-title-row .q-title { margin: 0; }
+    .q-title-icon {
+      width: 48px;
+      height: 48px;
+      object-fit: contain;
+      image-rendering: auto;
+      flex-shrink: 0;
+    }
+
+    .edge { stroke: #52525e; stroke-width: 2; transition: stroke 0.12s, opacity 0.12s; }
+    .edge.in { stroke: #d97706; stroke-width: 2.75; }
+    .edge.out { stroke: #16a34a; stroke-width: 2.75; }
+    .edge.dimmed { opacity: 0.12; }
+
+    /* LARGE QUEST READER DRAWER */
+    #quest-drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: min(680px, 52vw);
+      background: var(--bg-panel);
+      border-left: 1px solid var(--border-strong);
+      box-shadow: -12px 0 36px rgba(0, 0, 0, 0.55);
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    #quest-drawer.open { transform: translateX(0); }
+
+    .drawer-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-canvas);
+      gap: 12px;
+    }
+
+    .drawer-nav { display: flex; align-items: center; gap: 8px; }
+
+    .drawer-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 32px 48px;
+    }
+
+    .q-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+
+    .q-pill {
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+    }
+    .q-pill.main { border-color: #926624; color: #fbbf24; background: rgba(217, 119, 6, 0.1); }
+    .q-pill.done { border-color: #16a34a; color: #4ade80; background: var(--green-soft); }
+
+    .q-title {
+      font-size: 1.55rem;
+      font-weight: 650;
+      line-height: 1.25;
+      letter-spacing: -0.02em;
+      margin: 0 0 18px;
+      color: var(--text-main);
+    }
+
+    .q-desc {
+      font-size: 0.96rem;
+      line-height: 1.68;
+      color: #d4d4d8;
+      white-space: pre-wrap;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 18px 20px;
+      margin-bottom: 24px;
+    }
+
+    .q-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 1100px) { .q-grid { grid-template-columns: 1fr; } }
+
+    .q-card {
+      background: var(--bg-canvas);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+
+    .q-card-title {
+      font-size: 0.74rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .list-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.86rem;
+      gap: 8px;
+    }
+    .list-row:last-child { border-bottom: none; }
+
+    .copy-id {
+      border: 0;
+      background: transparent;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 2px 5px;
+      border-radius: 3px;
+      white-space: nowrap;
+    }
+    .copy-id:hover { color: var(--text-main); background: var(--bg-hover); }
+
+    .dep-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 22px;
+    }
+
+    .dep-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 6px 11px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-align: left;
+    }
+    .dep-btn:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+    .dep-btn.ext { border-style: dashed; }
+
+    @keyframes mc-obf { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+    .mc-k { animation: mc-obf 0.25s infinite; letter-spacing: 1px; }
+  </style>
+</head>
+<body>
+
+  <!-- Left Chapter & Search Rail -->
+  <aside id="nav-rail">
+    <div class="rail-header">
+      <div class="rail-title">
+        <span>GTNH Questbook</span>
+        <span class="rail-tag" id="total-stats">Loading…</span>
+      </div>
+      <div class="search-wrap">
+        <input type="text" id="global-search" placeholder="Search all quests or items…" />
+        <span class="kbd-hint">/</span>
+      </div>
+      <div class="filter-row">
+        <span id="rail-mode-label">Chapters</span>
+        <label style="cursor:pointer;display:flex;align-items:center;gap:4px;">
+          <input type="checkbox" id="hide-completed" style="margin:0;" /> Dim completed
+        </label>
+      </div>
+    </div>
+
+    <div class="chapter-list" id="chapter-list"></div>
+    <div id="global-results"></div>
+  </aside>
+
+  <!-- Center Interactive Graph -->
+  <main id="canvas-wrap">
+    <div id="canvas-hud">
+      <div class="hud-pill">
+        <strong id="hud-ch-title">Chapter</strong>
+        <span style="color:var(--text-muted);" id="hud-ch-sub">0 quests</span>
+      </div>
+      <div class="hud-pill" style="gap:6px;">
+        <button class="hud-btn" id="btn-ch-info" title="View Chapter Overview">Chapter Notes</button>
+        <button class="hud-btn" id="btn-fit" title="Fit Chapter (F)">Fit</button>
+        <button class="hud-btn" id="btn-zoom-out" title="Zoom Out (-)">−</button>
+        <button class="hud-btn" id="btn-zoom-in" title="Zoom In (+)">+</button>
+      </div>
+    </div>
+
+    <svg id="map" width="100%" height="100%">
+      <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 1 1.5 L 9.5 5 L 1 8.5 L 3 5 z" fill="#71717a"/>
+    </marker>
+    <marker id="arrow-in" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 1 1.5 L 9.5 5 L 1 8.5 L 3 5 z" fill="#f59e0b"/>
+    </marker>
+    <marker id="arrow-out" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 1 1.5 L 9.5 5 L 1 8.5 L 3 5 z" fill="#22c55e"/>
+    </marker>
+  </defs>
+      <g id="viewport"></g>
+    </svg>
+
+    <div id="canvas-footer">
+      <span class="leg-item"><i class="swatch" style="border-color:#3f624d;background:#1c1c21;"></i>Start</span>
+      <span class="leg-item"><i class="swatch" style="border-color:#4b4b57;background:#1c1c21;"></i>Standard</span>
+      <span class="leg-item"><i class="swatch" style="border-color:#926624;background:#1c1c21;"></i>Main Quest</span>
+      <span class="leg-item"><i class="swatch" style="border-color:#22c55e;background:#14261c;"></i>Completed</span>
+      <span class="leg-item">Drag to pan · Scroll to zoom · Click node to read</span>
+    </div>
+  </main>
+
+  <!-- Large Slide-Over Quest Reader -->
+  <section id="quest-drawer" aria-hidden="true">
+    <div class="drawer-topbar">
+      <div class="drawer-nav">
+        <button class="hud-btn" id="btn-prev-quest" title="Previous Quest (←)">← Prev</button>
+        <button class="hud-btn" id="btn-next-quest" title="Next Quest (→)">Next →</button>
+        <button class="hud-btn" id="btn-toggle-done">Mark Completed</button>
+      </div>
+      <button class="hud-btn" id="btn-close-drawer" title="Close (Esc)">Close ✕</button>
+    </div>
+    <div class="drawer-body" id="drawer-body"></div>
+  </section>
+
+  <script>
+    const MC_COLORS = {
+      '0': '#9ca3af', '1': '#3b82f6', '2': '#22c55e', '3': '#06b6d4',
+      '4': '#ef4444', '5': '#a855f7', '6': '#f59e0b', '7': '#d4d4d8',
+      '8': '#71717a', '9': '#60a5fa', 'a': '#4ade80', 'b': '#22d3ee',
+      'c': '#f87171', 'd': '#e879f9', 'e': '#facc15', 'f': '#fafafa'
+    };
+
+    const escapeHtml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const stripMc = (s) => String(s || '').replace(/§[0-9a-fk-or]/gi, '');
+
+    function formatMcHtml(raw) {
+      if (!raw) return '';
+      const parts = String(raw).split(/(§[0-9a-fk-or])/gi);
+      let color = null, bold = false, italic = false, under = false, strike = false, obf = false, out = '';
+      for (const part of parts) {
+        if (/^§[0-9a-fk-or]$/i.test(part)) {
+          const code = part[1].toLowerCase();
+          if (MC_COLORS[code]) { color = MC_COLORS[code]; bold = italic = under = strike = obf = false; }
+          else if (code === 'l') bold = true;
+          else if (code === 'o') italic = true;
+          else if (code === 'n') under = true;
+          else if (code === 'm') strike = true;
+          else if (code === 'k') obf = true;
+          else if (code === 'r') { color = null; bold = italic = under = strike = obf = false; }
+        } else if (part) {
+          const styles = [];
+          if (color) styles.push(`color:${color}`);
+          if (bold) styles.push('font-weight:700');
+          if (italic) styles.push('font-style:italic');
+          const dec = [under ? 'underline' : '', strike ? 'line-through' : ''].filter(Boolean).join(' ');
+          if (dec) styles.push(`text-decoration:${dec}`);
+          const cls = obf ? ' class="mc-k"' : '';
+          const st = styles.length ? ` style="${styles.join(';')}"` : '';
+          out += (cls || st) ? `<span${cls}${st}>${escapeHtml(part)}</span>` : escapeHtml(part);
+        }
+      }
+      return out;
+    }
+
+    function formatMcSvgTspans(raw) {
+      if (!raw) return '';
+      const parts = String(raw).split(/(§[0-9a-fk-or])/gi);
+      let color = '#e4e4e7', bold = false, italic = false, out = '';
+      for (const part of parts) {
+        if (/^§[0-9a-fk-or]$/i.test(part)) {
+          const code = part[1].toLowerCase();
+          if (MC_COLORS[code]) { color = MC_COLORS[code]; bold = italic = false; }
+          else if (code === 'l') bold = true;
+          else if (code === 'o') italic = true;
+          else if (code === 'r') { color = '#e4e4e7'; bold = italic = false; }
+        } else if (part) {
+          out += `<tspan fill="${color}" font-weight="${bold ? '600' : '400'}" font-style="${italic ? 'italic' : 'normal'}">${escapeHtml(part)}</tspan>`;
+        }
+      }
+      return out;
+    }
+
+    const normId = (raw) => {
+      if (raw === null || raw === undefined) return '';
+      return String(raw).trim().replace(/:\d+$/, '').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    };
+
+    function highLowToBase64(high, low) {
+      if (high === undefined || high === null || low === undefined || low === null) return '';
+      const bytes = new Uint8Array(16);
+      const view = new DataView(bytes.buffer);
+      view.setBigInt64(0, BigInt(high), false);
+      view.setBigInt64(8, BigInt(low), false);
+      let bin = '';
+      for (let i = 0; i < 16; i++) bin += String.fromCharCode(bytes[i]);
+      return normId(btoa(bin));
+    }
+
+    const extractIdFromName = (str) => {
+      if (!str) return '';
+      const clean = String(str).replace(/\.json$/i, '').replace(/:\d+$/, '');
+      const m = clean.match(/(?:^|-)([A-Za-z0-9+/_-]{22}={0,2})$/);
+      return m ? normId(m[1]) : '';
+    };
+
+    const humanize = (name) => name
+      .replace(/-[A-Za-z0-9+/_-]{22}={0,2}$/, '')
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/([A-Za-z])(\d)/g, '$1 $2')
+      .replace(/(\d)([A-Z])/g, '$1 $2')
+      .trim();
+
+    function extractPrereqIds(json) {
+      const ids = [];
+      const rawPrereqs = json['preRequisites:9'] || json['preRequisites:11'] || {};
+      const entries = Array.isArray(rawPrereqs) ? rawPrereqs : Object.values(rawPrereqs);
+      for (const v of entries) {
+        if (!v) continue;
+        if (typeof v === 'object') {
+          const hl = highLowToBase64(v['questIDHigh:4'] ?? v['high:4'], v['questIDLow:4'] ?? v['low:4']);
+          if (hl) { ids.push(hl); continue; }
+          const strId = normId(v['id:8'] ?? v['questID:8']);
+          if (strId) ids.push(strId);
+        } else {
+          const strId = normId(v);
+          if (strId) ids.push(strId);
+        }
+      }
+      return [...new Set(ids)];
+    }
+
+    function parseQuestJson(raw) {
+      const exactIntegerFields = /("(?:quest(?:Line)?ID(?:High|Low):4|high:4|low:4)"\s*:\s*)(-?\d+)/g;
+      return JSON.parse(raw.replace(exactIntegerFields, '$1"$2"'));
+    }
+
+    const GT_META_PREFIXES = {
+      '01': [
+        'dustTiny', 'dustSmall', 'dust', 'dustImpure', 'dustPure',
+        'crushed', 'crushedPurified', 'crushedCentrifuged', 'gem', 'nugget',
+        null, 'ingot', 'ingotHot', null, null, null, null,
+        'plate', 'plateDouble', 'plateTriple', 'plateQuadruple', 'plateQuintuple', 'plateDense',
+        'stick', 'lens', 'round', 'bolt', 'screw', 'ring', 'foil', 'cell', 'cellPlasma'
+      ],
+      '02': [
+        null, null, null, null, null, 'toolHeadHammer', 'toolHeadFile', 'toolHeadSaw',
+        'toolHeadDrill', 'toolHeadChainsaw', 'toolHeadWrench', null, null, null, null,
+        'toolHeadBuzzSaw', 'turbineBlade', null, 'itemCasing', 'wireFine', 'gearGtSmall',
+        'rotor', 'stickLong', 'springSmall', 'spring', null, null, 'gemChipped',
+        'gemFlawed', 'gemFlawless', 'gemExquisite', 'gearGt'
+      ],
+      '03': [null, null, null, null, 'nanite', 'rawOre', 'plateSuperdense']
+    };
+
+    const GT_PREFIX_LABELS = {
+      dustTiny: material => `Tiny ${material} Dust`,
+      dustSmall: material => `Small ${material} Dust`,
+      dust: material => `${material} Dust`,
+      dustImpure: material => `Impure ${material} Dust`,
+      dustPure: material => `Purified ${material} Dust`,
+      crushed: material => `Crushed ${material} Ore`,
+      crushedPurified: material => `Purified Crushed ${material} Ore`,
+      crushedCentrifuged: material => `Centrifuged Crushed ${material} Ore`,
+      gem: material => `${material} Gem`,
+      nugget: material => `${material} Nugget`,
+      ingot: material => `${material} Ingot`,
+      ingotHot: material => `Hot ${material} Ingot`,
+      plate: material => `${material} Plate`,
+      plateDouble: material => `Double ${material} Plate`,
+      plateTriple: material => `Triple ${material} Plate`,
+      plateQuadruple: material => `Quadruple ${material} Plate`,
+      plateQuintuple: material => `Quintuple ${material} Plate`,
+      plateDense: material => `Dense ${material} Plate`,
+      stick: material => `${material} Rod`,
+      lens: material => `${material} Lens`,
+      round: material => `${material} Round`,
+      bolt: material => `${material} Bolt`,
+      screw: material => `${material} Screw`,
+      ring: material => `${material} Ring`,
+      foil: material => `${material} Foil`,
+      cell: material => `${material} Cell`,
+      cellPlasma: material => `${material} Plasma Cell`,
+      toolHeadHammer: material => `${material} Hammer Head`,
+      toolHeadFile: material => `${material} File Head`,
+      toolHeadSaw: material => `${material} Saw Head`,
+      toolHeadDrill: material => `${material} Drill Head`,
+      toolHeadChainsaw: material => `${material} Chainsaw Head`,
+      toolHeadWrench: material => `${material} Wrench Head`,
+      toolHeadBuzzSaw: material => `${material} Buzzsaw Head`,
+      turbineBlade: material => `${material} Turbine Blade`,
+      itemCasing: material => `${material} Item Casing`,
+      wireFine: material => `Fine ${material} Wire`,
+      gearGtSmall: material => `Small ${material} Gear`,
+      rotor: material => `${material} Rotor`,
+      stickLong: material => `Long ${material} Rod`,
+      springSmall: material => `Small ${material} Spring`,
+      spring: material => `${material} Spring`,
+      gemChipped: material => `Chipped ${material} Gem`,
+      gemFlawed: material => `Flawed ${material} Gem`,
+      gemFlawless: material => `Flawless ${material} Gem`,
+      gemExquisite: material => `Exquisite ${material} Gem`,
+      gearGt: material => `${material} Gear`,
+      nanite: material => `${material} Nanite`,
+      rawOre: material => `Raw ${material} Ore`,
+      plateSuperdense: material => `Superdense ${material} Plate`
+    };
+
+    const VANILLA_COLORS = ['White', 'Orange', 'Magenta', 'Light Blue', 'Yellow', 'Lime', 'Pink', 'Gray', 'Light Gray', 'Cyan', 'Purple', 'Blue', 'Brown', 'Green', 'Red', 'Black'];
+    const VANILLA_ITEM_VARIANTS = {
+      'minecraft:dye': ['Ink Sac', 'Rose Red', 'Cactus Green', 'Cocoa Beans', 'Lapis Lazuli', 'Purple Dye', 'Cyan Dye', 'Light Gray Dye', 'Gray Dye', 'Pink Dye', 'Lime Dye', 'Dandelion Yellow', 'Light Blue Dye', 'Magenta Dye', 'Orange Dye', 'Bone Meal'],
+      'minecraft:coal': { 0: 'Coal', 1: 'Charcoal' },
+      'minecraft:fish': { 0: 'Raw Fish', 1: 'Raw Salmon', 2: 'Clownfish', 3: 'Pufferfish' },
+      'minecraft:golden_apple': { 0: 'Golden Apple', 1: 'Enchanted Golden Apple' },
+      'minecraft:log': { 0: 'Oak Log', 1: 'Spruce Log', 2: 'Birch Log', 3: 'Jungle Log', 32767: 'Any Wood Log' },
+      'minecraft:sapling': { 0: 'Oak Sapling', 1: 'Spruce Sapling', 2: 'Birch Sapling', 3: 'Jungle Sapling', 4: 'Acacia Sapling', 5: 'Dark Oak Sapling' },
+      'minecraft:red_flower': { 0: 'Poppy', 1: 'Blue Orchid', 2: 'Allium', 3: 'Azure Bluet', 4: 'Red Tulip', 5: 'Orange Tulip', 6: 'White Tulip', 7: 'Pink Tulip', 8: 'Oxeye Daisy' },
+      'minecraft:double_plant': { 0: 'Sunflower', 1: 'Lilac', 2: 'Double Tallgrass', 3: 'Large Fern', 4: 'Rose Bush', 5: 'Peony' },
+      'minecraft:skull': { 0: 'Skeleton Skull', 1: 'Wither Skeleton Skull', 2: 'Zombie Head', 3: 'Player Head', 4: 'Creeper Head' },
+      'minecraft:spawn_egg': {
+        50: 'Creeper Spawn Egg', 51: 'Skeleton Spawn Egg', 52: 'Spider Spawn Egg', 53: 'Giant Spawn Egg',
+        54: 'Zombie Spawn Egg', 55: 'Slime Spawn Egg', 56: 'Ghast Spawn Egg', 57: 'Zombie Pigman Spawn Egg',
+        58: 'Enderman Spawn Egg', 59: 'Cave Spider Spawn Egg', 60: 'Silverfish Spawn Egg',
+        61: 'Blaze Spawn Egg', 62: 'Magma Cube Spawn Egg', 90: 'Pig Spawn Egg', 91: 'Sheep Spawn Egg',
+        92: 'Cow Spawn Egg', 93: 'Chicken Spawn Egg', 94: 'Squid Spawn Egg', 95: 'Wolf Spawn Egg',
+        96: 'Mooshroom Spawn Egg', 97: 'Snow Golem Spawn Egg', 98: 'Ocelot Spawn Egg',
+        99: 'Iron Golem Spawn Egg', 100: 'Horse Spawn Egg', 120: 'Villager Spawn Egg'
+      },
+      'minecraft:quartz_block': { 0: 'Block of Quartz', 1: 'Chiseled Quartz Block', 2: 'Quartz Pillar' },
+      'minecraft:tallgrass': { 1: 'Tall Grass', 2: 'Fern' },
+      'minecraft:wool': VANILLA_COLORS.map(color => `${color} Wool`)
+    };
+
+    function humanizeItemPath(path) {
+      return path
+        .replace(/^gt\./i, '')
+        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+        .replace(/([A-Za-z])(\d)/g, '$1 $2')
+        .replace(/[._-]+/g, ' ')
+        .trim()
+        .split(/\s+/)
+        .map(word => word ? word[0].toUpperCase() + word.slice(1) : '')
+        .join(' ');
+    }
+
+    function resolveItemName(itemId, damage, itemNames) {
+      const idParts = String(itemId).split(':');
+      const namespace = idParts.length > 1 ? idParts[0] : '';
+      let path = idParts.length > 1 ? idParts.slice(1).join(':') : idParts[0];
+      path = path.toLowerCase().replace(/^gtmetaitem(0[1-3])$/, 'gt.metaitem.$1');
+      const canonicalId = namespace ? `${namespace.toLowerCase()}:${path}` : path;
+      const meta = Number(damage) || 0;
+
+      if (path === 'gt.blockmachines') {
+        return itemNames.machines?.[String(meta)] || `GregTech Machine #${meta}`;
+      }
+
+      const metaItemMatch = path.match(/^gt\.metaitem\.(01|02|03)$/);
+      if (metaItemMatch) {
+        const suffix = metaItemMatch[1];
+        const customName = itemNames.metaItems?.[suffix]?.[String(meta)];
+        if (customName) return customName;
+
+        const prefixIndex = Math.floor(meta / 1000);
+        const materialId = meta % 1000;
+        const prefix = GT_META_PREFIXES[suffix][prefixIndex];
+        const material = itemNames.materials?.[String(materialId)];
+        const makeName = GT_PREFIX_LABELS[prefix];
+        if (prefix && material && makeName) return makeName(material);
+        return `GregTech Item #${meta}`;
+      }
+
+      const variants = VANILLA_ITEM_VARIANTS[canonicalId];
+      if (variants && variants[meta]) return variants[meta];
+
+      const readablePath = humanizeItemPath(path) || humanizeItemPath(namespace);
+      return meta ? `${readablePath} (Variant ${meta})` : readablePath;
+    }
+
+    function parseEntries(container, itemNames) {
+      if (!container) return [];
+      const list = [];
+      for (const entry of Object.values(container)) {
+        if (!entry || typeof entry !== 'object') continue;
+        const type = (entry['taskID:8'] || entry['rewardID:8'] || '').replace(/^bq_standard:/, '');
+        const itemsObj = entry['requiredItems:9'] || entry['rewards:9'] || entry['choices:9'] || {};
+        const items = Object.values(itemsObj).filter(it => it && typeof it === 'object' && it['id:8']);
+
+        if (items.length) {
+          for (const it of items) {
+            const count = it['Count:3'] ?? 1;
+            const damage = it['Damage:2'] ?? 0;
+            const dmg = damage ? `:${damage}` : '';
+            const fullId = `${it['id:8']}${dmg}`;
+            list.push({
+              label: `${count}× ${resolveItemName(it['id:8'], damage, itemNames)}`,
+              tag: type,
+              fullId
+            });
+          }
+        } else if (entry['amount:3'] && entry['index:3'] !== undefined) {
+          list.push({ label: `${entry['amount:3']} XP`, tag: type || 'xp', fullId: '' });
+        } else if (type) {
+          list.push({ label: type, tag: '', fullId: '' });
+        }
+      }
+      return list;
+    }
+
+    function assemble(files, itemNames) {
+      const lang = new Map();
+      for (const [p, text] of Object.entries(files)) {
+        if (!p.endsWith('.lang')) continue;
+        for (const line of text.split(/\r?\n/)) {
+          const eq = line.indexOf('=');
+          if (eq > 0 && !line.startsWith('#')) lang.set(line.slice(0, eq).trim(), line.slice(eq + 1).trim());
+        }
+      }
+      const t = (s) => lang.get(s) || s || '';
+
+      const questDefs = new Map();
+      const lineDefs = new Map();
+      const linePlacements = new Map();
+      let orderLines = [];
+
+      for (const [p, raw] of Object.entries(files)) {
+        if (p.endsWith('QuestLinesOrder.txt')) {
+          orderLines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+          continue;
+        }
+        if (!p.endsWith('.json')) continue;
+        let json;
+        try { json = parseQuestJson(raw); } catch { continue; }
+
+        const parts = p.split('/');
+        const fileName = parts[parts.length - 1];
+        const parentFolder = parts[parts.length - 2] || '';
+
+        if (/\/QuestLines\//i.test(p)) {
+          if (/^QuestLine\.json$/i.test(fileName)) {
+            const props = json['properties:10']?.['betterquesting:10'] || {};
+            const rawTitle = t(props['name:8']);
+            const id = highLowToBase64(json['questLineIDHigh:4'], json['questLineIDLow:4']) || extractIdFromName(parentFolder);
+            lineDefs.set(parentFolder, {
+              id,
+              folder: parentFolder,
+              rawTitle: (!rawTitle || stripMc(rawTitle).startsWith('gtnh.')) ? humanize(parentFolder) : rawTitle,
+              rawDesc: t(props['desc:8'])
+            });
+          } else {
+            const qId = highLowToBase64(json['questIDHigh:4'], json['questIDLow:4']) || extractIdFromName(fileName);
+            if (!qId) continue;
+            if (!linePlacements.has(parentFolder)) linePlacements.set(parentFolder, []);
+            linePlacements.get(parentFolder).push({
+              questId: qId,
+              fallbackTitle: humanize(fileName.replace(/\.json$/i, '')),
+              iconId: String(json['questIDLow:4'] ?? ''),
+              x: Number(json['x:3'] ?? 0),
+              y: Number(json['y:3'] ?? 0),
+              sizeX: Number(json['sizeX:3'] ?? 24),
+              sizeY: Number(json['sizeY:3'] ?? 24)
+            });
+          }
+        } else if (/\/Quests\//i.test(p)) {
+          const fileId = extractIdFromName(fileName);
+          const hlId = highLowToBase64(json['questIDHigh:4'], json['questIDLow:4']);
+          const id = hlId || normId(json['questID:8']) || fileId;
+          if (!id) continue;
+
+          const props = json['properties:10']?.['betterquesting:10'] || {};
+          const rawTitle = t(props['name:8']) || humanize(fileName.replace(/\.json$/i, ''));
+          const qDef = {
+            id,
+            rawTitle,
+            cleanTitle: stripMc(rawTitle),
+            rawDesc: t(props['desc:8']),
+            isMain: Boolean(props['ismain:1']),
+            iconId: String(json['questIDLow:4'] ?? ''),
+            prereqs: extractPrereqIds(json),
+            tasks: parseEntries(json['tasks:9'], itemNames),
+            rewards: parseEntries(json['rewards:9'], itemNames),
+            unlocks: [],
+            chapterIndex: -1,
+            chapterTitle: ''
+          };
+          questDefs.set(id, qDef);
+          if (fileId && fileId !== id) questDefs.set(fileId, qDef);
+        }
+      }
+
+      const chapters = [];
+      for (const [folder, placements] of linePlacements.entries()) {
+        const meta = lineDefs.get(folder) || {
+          id: extractIdFromName(folder),
+          folder,
+          rawTitle: humanize(folder),
+          rawDesc: ''
+        };
+
+        const quests = [];
+        const seen = new Set();
+
+        for (const stub of placements) {
+          if (seen.has(stub.questId)) continue;
+          seen.add(stub.questId);
+
+          const def = questDefs.get(stub.questId) || {
+            id: stub.questId,
+            rawTitle: stub.fallbackTitle,
+            cleanTitle: stub.fallbackTitle,
+            rawDesc: '',
+            isMain: false,
+            prereqs: [],
+            tasks: [],
+            rewards: [],
+            unlocks: [],
+            chapterIndex: -1,
+            chapterTitle: '',
+            iconId: stub.iconId
+          };
+
+          const cleanChTitle = stripMc(meta.rawTitle);
+          if (!def.chapterTitle) def.chapterTitle = cleanChTitle;
+
+          quests.push({
+            ...def,
+            x: stub.x,
+            y: stub.y,
+            sizeX: stub.sizeX,
+            sizeY: stub.sizeY
+          });
+        }
+
+        if (quests.length > 0) {
+          chapters.push({
+            id: meta.id,
+            folder,
+            rawTitle: meta.rawTitle,
+            cleanTitle: stripMc(meta.rawTitle),
+            rawDesc: meta.rawDesc,
+            quests
+          });
+        }
+      }
+
+      const orderMap = new Map();
+      orderLines.forEach((l, i) => {
+        const [rawId, rawTitle] = l.split(':', 2);
+        const id = extractIdFromName(rawId.trim()) || normId(rawId.trim());
+        if (id) orderMap.set(id, i);
+        if (rawTitle) orderMap.set(rawTitle.trim().toLowerCase(), i);
+      });
+
+      chapters.sort((a, b) => {
+        const idxA = orderMap.get(a.id) ?? orderMap.get(a.folder.toLowerCase()) ?? orderMap.get(a.cleanTitle.toLowerCase()) ?? 9999;
+        const idxB = orderMap.get(b.id) ?? orderMap.get(b.folder.toLowerCase()) ?? orderMap.get(b.cleanTitle.toLowerCase()) ?? 9999;
+        return idxA !== idxB ? idxA - idxB : a.cleanTitle.localeCompare(b.cleanTitle);
+      });
+
+      const placedQuestMap = new Map();
+      chapters.forEach((ch, idx) => {
+        ch.quests.forEach(q => {
+          q.chapterIndex = idx;
+          if (!placedQuestMap.has(q.id)) placedQuestMap.set(q.id, q);
+        });
+      });
+
+      for (const q of placedQuestMap.values()) {
+        for (const preId of q.prereqs) {
+          const parent = placedQuestMap.get(preId) || questDefs.get(preId);
+          if (parent && !parent.unlocks.some(u => u.id === q.id)) {
+            parent.unlocks.push({
+              id: q.id,
+              rawTitle: q.rawTitle,
+              cleanTitle: q.cleanTitle,
+              chapterTitle: q.chapterTitle,
+              chapterIndex: q.chapterIndex
+            });
+          }
+        }
+      }
+
+      return { chapters, placedQuestMap };
+    }
+
+    // State
+    let allChapters = [];
+    let globalQuestMap = new Map();
+    let currentChapterIdx = 0;
+    let selectedQuestId = null;
+    const completedSet = new Set(JSON.parse(localStorage.getItem('gtnh_completed_quests') || '[]'));
+
+    function saveCompleted() {
+      localStorage.setItem('gtnh_completed_quests', JSON.stringify([...completedSet]));
+    }
+
+    // Pan & Zoom
+    let panX = 0, panY = 0, zoom = 1;
+    const viewport = document.getElementById('viewport');
+    const canvasWrap = document.getElementById('canvas-wrap');
+
+    function applyTransform() {
+      viewport.setAttribute('transform', `translate(${panX}, ${panY}) scale(${zoom})`);
+    }
+
+    canvasWrap.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const rect = canvasWrap.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const factor = e.deltaY < 0 ? 1.15 : 0.87;
+      const nextZoom = Math.min(4, Math.max(0.2, zoom * factor));
+      panX = mx - ((mx - panX) / zoom) * nextZoom;
+      panY = my - ((my - panY) / zoom) * nextZoom;
+      zoom = nextZoom;
+      applyTransform();
+    }, { passive: false });
+
+    let dragging = false, startX = 0, startY = 0, moved = false;
+    canvasWrap.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.node')) return;
+      dragging = true;
+      moved = false;
+      startX = e.clientX - panX;
+      startY = e.clientY - panY;
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      if (Math.abs(e.clientX - startX - panX) > 3 || Math.abs(e.clientY - startY - panY) > 3) moved = true;
+      panX = e.clientX - startX;
+      panY = e.clientY - startY;
+      applyTransform();
+    });
+    window.addEventListener('mouseup', () => { dragging = false; });
+
+    function fitChapterBounds(quests) {
+      if (!quests.length) return;
+      const S = 2.7;
+      const xs = quests.map(q => q.x * S);
+      const ys = quests.map(q => q.y * S);
+      const minX = Math.min(...xs) - 90;
+      const minY = Math.min(...ys) - 90;
+      const maxX = Math.max(...xs) + 180;
+      const maxY = Math.max(...ys) + 180;
+
+      const rect = canvasWrap.getBoundingClientRect();
+      const scaleX = rect.width / Math.max(200, maxX - minX);
+      const scaleY = rect.height / Math.max(200, maxY - minY);
+      zoom = Math.min(1.35, Math.max(0.25, Math.min(scaleX, scaleY)));
+      panX = (rect.width - (maxX - minX) * zoom) / 2 - minX * zoom;
+      panY = (rect.height - (maxY - minY) * zoom) / 2 - minY * zoom;
+      applyTransform();
+    }
+
+    function renderChapterList() {
+      const listEl = document.getElementById('chapter-list');
+      listEl.innerHTML = allChapters.map((ch, idx) => {
+        const doneCount = ch.quests.filter(q => completedSet.has(q.id)).length;
+        const countLabel = doneCount > 0 ? `${doneCount}/${ch.quests.length}` : `${ch.quests.length}`;
+        return `
+          <div class="ch-item ${idx === currentChapterIdx ? 'active' : ''}" data-idx="${idx}">
+            <span class="ch-num">${idx + 1}.</span>
+            <img class="ch-icon" src="/assets/chapter-icons/290/${escapeHtml(ch.folder.split('-')[0])}.webp" alt="" />
+            <span class="ch-name" title="${escapeHtml(ch.cleanTitle)}">${escapeHtml(ch.cleanTitle)}</span>
+            <span class="ch-count">${countLabel}</span>
+          </div>`;
+      }).join('');
+
+      listEl.querySelectorAll('.ch-item').forEach(el => {
+        el.addEventListener('click', () => {
+          selectChapter(Number(el.dataset.idx));
+        });
+      });
+    }
+
+    function openDrawer() {
+      const drawer = document.getElementById('quest-drawer');
+      drawer.classList.add('open');
+      drawer.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeDrawer() {
+      const drawer = document.getElementById('quest-drawer');
+      drawer.classList.remove('open');
+      drawer.setAttribute('aria-hidden', 'true');
+      selectedQuestId = null;
+      viewport.querySelectorAll('.node').forEach(n => n.classList.remove('selected'));
+    }
+
+    function showChapterOverview() {
+      const ch = allChapters[currentChapterIdx];
+      selectedQuestId = null;
+      viewport.querySelectorAll('.node').forEach(n => n.classList.remove('selected'));
+      document.getElementById('btn-toggle-done').style.display = 'none';
+      document.getElementById('btn-prev-quest').style.display = 'none';
+      document.getElementById('btn-next-quest').style.display = 'none';
+
+      const doneCount = ch.quests.filter(q => completedSet.has(q.id)).length;
+      document.getElementById('drawer-body').innerHTML = `
+        <div class="q-eyebrow">
+          <span>Chapter ${currentChapterIdx + 1} of ${allChapters.length}</span>
+          <span class="q-pill">${doneCount} / ${ch.quests.length} Completed</span>
+        </div>
+        <h2 class="q-title">${formatMcHtml(ch.rawTitle)}</h2>
+        <div class="q-desc">${formatMcHtml(ch.rawDesc) || '<span style="color:var(--text-muted)">No chapter overview text provided.</span>'}</div>
+        <div class="q-card">
+          <div class="q-card-title">Quests in this Chapter (${ch.quests.length})</div>
+          ${ch.quests.map(q => `
+            <div class="list-row" style="cursor:pointer;" onclick="openQuest('${q.id}', ${currentChapterIdx})">
+              <span>${completedSet.has(q.id) ? '✓ ' : ''}${formatMcHtml(q.rawTitle)}</span>
+              <span style="font-family:var(--font-mono);font-size:0.74rem;color:var(--text-dim);">(${q.x}, ${q.y})</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+      openDrawer();
+    }
+
+    window.copyText = (txt, el) => {
+      navigator.clipboard?.writeText(txt);
+      const orig = el.textContent;
+      el.textContent = 'Copied';
+      setTimeout(() => { el.textContent = orig; }, 900);
+    };
+
+    window.openQuest = (id, targetChIdx = currentChapterIdx) => {
+      if (targetChIdx !== undefined && targetChIdx >= 0 && targetChIdx !== currentChapterIdx) {
+        selectChapter(targetChIdx, false);
+      }
+
+      const ch = allChapters[currentChapterIdx];
+      const qIdx = ch.quests.findIndex(item => item.id === id);
+      const q = qIdx >= 0 ? ch.quests[qIdx] : globalQuestMap.get(id);
+      if (!q) return;
+
+      selectedQuestId = q.id;
+      const isDone = completedSet.has(q.id);
+
+      viewport.querySelectorAll('.node').forEach(n => n.classList.remove('selected'));
+      viewport.querySelector(`.node[data-id="${q.id}"]`)?.classList.add('selected');
+
+      // Center node in visible canvas area (accounting for open right drawer)
+      const rect = canvasWrap.getBoundingClientRect();
+      const drawerWidth = Math.min(680, window.innerWidth * 0.52);
+      const visibleWidth = Math.max(260, rect.width - drawerWidth);
+      const S = 2.7;
+      panX = visibleWidth / 2 - (q.x * S + (q.sizeX * S) / 2) * zoom;
+      panY = rect.height / 2 - (q.y * S + (q.sizeY * S) / 2) * zoom;
+      applyTransform();
+
+      // Topbar buttons
+      const doneBtn = document.getElementById('btn-toggle-done');
+      doneBtn.style.display = 'inline-block';
+      doneBtn.textContent = isDone ? '✓ Completed' : 'Mark Completed';
+      doneBtn.classList.toggle('active', isDone);
+
+      const prevBtn = document.getElementById('btn-prev-quest');
+      const nextBtn = document.getElementById('btn-next-quest');
+      prevBtn.style.display = 'inline-block';
+      nextBtn.style.display = 'inline-block';
+      prevBtn.disabled = qIdx <= 0;
+      nextBtn.disabled = qIdx < 0 || qIdx >= ch.quests.length - 1;
+      prevBtn.onclick = () => { if (qIdx > 0) openQuest(ch.quests[qIdx - 1].id, currentChapterIdx); };
+      nextBtn.onclick = () => { if (qIdx < ch.quests.length - 1) openQuest(ch.quests[qIdx + 1].id, currentChapterIdx); };
+
+      const localSet = new Set(ch.quests.map(item => item.id));
+
+      const preHtml = q.prereqs
+        .map(pid => globalQuestMap.get(pid))
+        .filter(Boolean)
+        .map(p => {
+          const isExt = !localSet.has(p.id);
+          return `<button class="dep-btn ${isExt ? 'ext' : ''}" onclick="openQuest('${p.id}', ${p.chapterIndex})">← ${formatMcHtml(p.rawTitle)}${isExt ? ` <span style="color:var(--text-muted);font-size:0.74rem;">[${escapeHtml(p.chapterTitle)}]</span>` : ''}</button>`;
+        }).join('') || '<span style="color:var(--text-muted);font-size:0.84rem;">Starting quest (no prerequisites)</span>';
+
+      const unlHtml = q.unlocks
+        .map(u => {
+          const isExt = !localSet.has(u.id);
+          return `<button class="dep-btn ${isExt ? 'ext' : ''}" onclick="openQuest('${u.id}', ${u.chapterIndex})">→ ${formatMcHtml(u.rawTitle)}${isExt ? ` <span style="color:var(--text-muted);font-size:0.74rem;">[${escapeHtml(u.chapterTitle)}]</span>` : ''}</button>`;
+        }).join('') || '<span style="color:var(--text-muted);font-size:0.84rem;">End of branch</span>';
+
+      const renderItemRows = (arr, emptyMsg) => arr.length
+        ? arr.map(it => `
+            <div class="list-row">
+              <span>${escapeHtml(it.label)}${it.tag ? ` <span style="color:var(--text-dim);font-size:0.74rem;">(${escapeHtml(it.tag)})</span>` : ''}</span>
+              ${it.fullId ? `<button class="copy-id" type="button" aria-label="Copy item ID: ${escapeHtml(it.fullId)}" title="Copy item ID" onclick="copyText('${escapeHtml(it.fullId)}', this)">Copy ID</button>` : ''}
+            </div>`).join('')
+        : `<div style="color:var(--text-dim);font-size:0.82rem;">${emptyMsg}</div>`;
+
+      document.getElementById('drawer-body').innerHTML = `
+        <div class="q-eyebrow">
+          <span>${escapeHtml(ch.cleanTitle)}</span>
+          <span>·</span>
+          <span>(${q.x}, ${q.y})</span>
+          ${q.isMain ? '<span class="q-pill main">Main Progression</span>' : ''}
+          ${isDone ? '<span class="q-pill done">Completed</span>' : ''}
+        </div>
+
+        <div class="q-title-row">
+          ${q.iconId ? `<img class="q-title-icon" src="/assets/quest-icons/290/${escapeHtml(q.iconId)}.webp" alt="" />` : ''}
+          <h2 class="q-title">${formatMcHtml(q.rawTitle)}</h2>
+        </div>
+
+        <div class="q-desc">${formatMcHtml(q.rawDesc) || '<span style="color:var(--text-muted)">No description text.</span>'}</div>
+
+        <div class="q-grid">
+          <div class="q-card">
+            <div class="q-card-title"><span>Requirements</span><span>${q.tasks.length}</span></div>
+            ${renderItemRows(q.tasks, 'No item tasks')}
+          </div>
+          <div class="q-card">
+            <div class="q-card-title"><span>Rewards</span><span>${q.rewards.length}</span></div>
+            ${renderItemRows(q.rewards, 'No item rewards')}
+          </div>
+        </div>
+
+        <div class="q-card-title">Prerequisites (${q.prereqs.length})</div>
+        <div class="dep-list">${preHtml}</div>
+
+        <div class="q-card-title">Unlocks Next (${q.unlocks.length})</div>
+        <div class="dep-list">${unlHtml}</div>
+      `;
+
+      openDrawer();
+    };
+
+    function selectChapter(idx, autoFit = true) {
+      currentChapterIdx = idx;
+      const ch = allChapters[idx];
+      if (!ch) return;
+
+      renderChapterList();
+      document.getElementById('hud-ch-title').innerHTML = formatMcHtml(ch.rawTitle);
+      document.getElementById('hud-ch-sub').textContent = `${ch.quests.length} quests`;
+
+      const S = 2.7;
+      const local = new Map(ch.quests.map(q => [q.id, q]));
+      const dimDone = document.getElementById('hide-completed').checked;
+      let html = '';
+
+      function clipToBoxEdge(x1, y1, cx, cy, boxW, boxH) {
+        const dx = cx - x1;
+        const dy = cy - y1;
+        if (dx === 0 && dy === 0) return { x: cx, y: cy };
+        const halfW = boxW / 2 + 4;
+        const halfH = boxH / 2 + 4;
+        const scale = Math.min(
+          dx !== 0 ? Math.abs(halfW / dx) : Infinity,
+          dy !== 0 ? Math.abs(halfH / dy) : Infinity
+        );
+        return scale < 1 ? { x: cx - dx * scale, y: cy - dy * scale } : { x: cx, y: cy };
+      }
+
+      for (const q of ch.quests) {
+        const w2 = Math.max(46, q.sizeX * S);
+        const h2 = Math.max(46, q.sizeY * S);
+        const cx2 = q.x * S + w2 / 2;
+        const cy2 = q.y * S + h2 / 2;
+
+        for (const preId of q.prereqs) {
+          const p = local.get(preId);
+          if (p) {
+            const w1 = Math.max(46, p.sizeX * S);
+            const h1 = Math.max(46, p.sizeY * S);
+            const cx1 = p.x * S + w1 / 2;
+            const cy1 = p.y * S + h1 / 2;
+            const start = clipToBoxEdge(cx2, cy2, cx1, cy1, w1, h1);
+            const end = clipToBoxEdge(cx1, cy1, cx2, cy2, w2, h2);
+            html += `<line class="edge" data-from="${p.id}" data-to="${q.id}" x1="${start.x.toFixed(1)}" y1="${start.y.toFixed(1)}" x2="${end.x.toFixed(1)}" y2="${end.y.toFixed(1)}" marker-end="url(#arrow)"/>`;
+          }
+        }
+      }
+
+      for (const q of ch.quests) {
+        const w = Math.max(46, q.sizeX * S);
+        const h = Math.max(46, q.sizeY * S);
+        const isRoot = q.prereqs.filter(id => local.has(id)).length === 0;
+        const isDone = completedSet.has(q.id);
+        const iconInset = Math.max(7, Math.min(14, w * 0.16));
+        const iconSize = w - iconInset * 2;
+        const iconHtml = q.iconId
+          ? `<image class="quest-icon" href="/assets/quest-icons/290/${escapeHtml(q.iconId)}.webp" x="${iconInset}" y="${Math.max(5, iconInset * 0.55)}" width="${iconSize}" height="${iconSize}" preserveAspectRatio="xMidYMid meet"/>`
+          : '';
+        const shapeSvg = q.isMain
+          ? `<polygon class="shape" points="${w/2},0 ${w},${h*0.25} ${w},${h*0.75} ${w/2},${h} 0,${h*0.75} 0,${h*0.25}"/>`
+          : `<rect class="shape" width="${w}" height="${h}" rx="6"/>`;
+
+        const truncated = q.cleanTitle.length > 22 ? q.cleanTitle.slice(0, 21) + '…' : q.cleanTitle;
+        const classes = [
+          'node',
+          isRoot ? 'root' : '',
+          q.isMain ? 'main' : '',
+          isDone ? 'done' : '',
+          q.id === selectedQuestId ? 'selected' : ''
+        ].filter(Boolean).join(' ');
+
+        const opacityAttr = (dimDone && isDone) ? ' style="opacity:0.32;"' : '';
+
+        html += `
+          <g class="${classes}" data-id="${q.id}" transform="translate(${q.x * S}, ${q.y * S})"${opacityAttr}>
+            ${shapeSvg}
+            ${iconHtml}
+            ${isDone ? `<text x="${w/2}" y="${h/2 + 4}" font-size="13" fill="#4ade80" text-anchor="middle">✓</text>` : ''}
+            <title>${escapeHtml(q.cleanTitle)} (${q.x}, ${q.y})</title>
+            <text x="${w / 2}" y="${h + 15}" font-size="11" text-anchor="middle">${formatMcSvgTspans(truncated)}</text>
+          </g>`;
+      }
+
+      viewport.innerHTML = html;
+      if (autoFit) fitChapterBounds(ch.quests);
+
+      const highlightNeighbors = (rawFocusId) => {
+        const focusId = rawFocusId || selectedQuestId;
+        const nodes = viewport.querySelectorAll('.node');
+        const edges = viewport.querySelectorAll('.edge');
+        if (!focusId) {
+          nodes.forEach(n => n.classList.remove('dimmed'));
+          edges.forEach(e => { e.classList.remove('dimmed', 'in', 'out'); e.setAttribute('marker-end', 'url(#arrow)'); });
+          return;
+        }
+        const connected = new Set([focusId]);
+        edges.forEach(e => {
+          const from = e.dataset.from, to = e.dataset.to;
+          if (to === focusId) {
+            connected.add(from);
+            e.classList.add('in'); e.classList.remove('dimmed'); e.setAttribute('marker-end', 'url(#arrow-in)');
+          } else if (from === focusId) {
+            connected.add(to);
+            e.classList.add('out'); e.classList.remove('dimmed'); e.setAttribute('marker-end', 'url(#arrow-out)');
+          } else {
+            e.classList.add('dimmed'); e.classList.remove('in', 'out'); e.setAttribute('marker-end', 'url(#arrow)');
+          }
+        });
+        nodes.forEach(n => n.classList.toggle('dimmed', !connected.has(n.dataset.id)));
+      };
+
+      viewport.querySelectorAll('.node').forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openQuest(el.dataset.id, currentChapterIdx);
+        });
+        el.addEventListener('mouseenter', () => highlightNeighbors(el.dataset.id));
+        el.addEventListener('mouseleave', () => highlightNeighbors(null));
+      });
+    }
+
+    // Event Wiring
+    document.getElementById('btn-close-drawer').addEventListener('click', closeDrawer);
+    document.getElementById('btn-ch-info').addEventListener('click', showChapterOverview);
+    document.getElementById('btn-fit').addEventListener('click', () => fitChapterBounds(allChapters[currentChapterIdx].quests));
+    document.getElementById('btn-zoom-in').addEventListener('click', () => { zoom = Math.min(4, zoom * 1.25); applyTransform(); });
+    document.getElementById('btn-zoom-out').addEventListener('click', () => { zoom = Math.max(0.2, zoom * 0.8); applyTransform(); });
+
+    document.getElementById('btn-toggle-done').addEventListener('click', () => {
+      if (!selectedQuestId) return;
+      if (completedSet.has(selectedQuestId)) completedSet.delete(selectedQuestId);
+      else completedSet.add(selectedQuestId);
+      saveCompleted();
+      selectChapter(currentChapterIdx, false);
+      openQuest(selectedQuestId, currentChapterIdx);
+    });
+
+    document.getElementById('hide-completed').addEventListener('change', () => {
+      selectChapter(currentChapterIdx, false);
+    });
+
+    // Global Search across all chapters, descriptions, tasks, and rewards
+    const searchInput = document.getElementById('global-search');
+    const chapterListEl = document.getElementById('chapter-list');
+    const resultsEl = document.getElementById('global-results');
+    const modeLabel = document.getElementById('rail-mode-label');
+
+    searchInput.addEventListener('input', () => {
+      const term = searchInput.value.trim().toLowerCase();
+      if (!term) {
+        resultsEl.style.display = 'none';
+        chapterListEl.style.display = 'block';
+        modeLabel.textContent = 'Chapters';
+        return;
+      }
+
+      chapterListEl.style.display = 'none';
+      resultsEl.style.display = 'block';
+
+      const matches = [];
+      for (const q of globalQuestMap.values()) {
+        const hay = `${q.cleanTitle} ${stripMc(q.rawDesc)} ${q.tasks.map(t => t.label + ' ' + t.fullId).join(' ')} ${q.rewards.map(r => r.label).join(' ')}`.toLowerCase();
+        if (hay.includes(term)) matches.push(q);
+        if (matches.length >= 80) break;
+      }
+
+      modeLabel.textContent = `Matches (${matches.length}${matches.length === 80 ? '+' : ''})`;
+      resultsEl.innerHTML = matches.length
+        ? matches.map(q => `
+            <div class="res-item" onclick="openQuest('${q.id}', ${q.chapterIndex})">
+              <div class="res-title">${formatMcHtml(q.rawTitle)}</div>
+              <div class="res-sub">${escapeHtml(q.chapterTitle)}</div>
+            </div>`).join('')
+        : `<div style="padding:14px;color:var(--text-muted);font-size:0.84rem;">No matching quests found.</div>`;
+    });
+
+    // Keyboard Shortcuts (/, Esc, Left/Right, F)
+    window.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT') {
+        if (e.key === 'Escape') {
+          e.target.value = '';
+          e.target.dispatchEvent(new Event('input'));
+          e.target.blur();
+        }
+        return;
+      }
+      if (e.key === '/') { e.preventDefault(); searchInput.focus(); }
+      else if (e.key === 'Escape') closeDrawer();
+      else if (e.key === 'f' || e.key === 'F') fitChapterBounds(allChapters[currentChapterIdx].quests);
+      else if (e.key === 'ArrowLeft' && selectedQuestId) document.getElementById('btn-prev-quest').click();
+      else if (e.key === 'ArrowRight' && selectedQuestId) document.getElementById('btn-next-quest').click();
+    });
+
+    const fetchJson = async (url) => {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Request failed (${response.status}): ${url}`);
+      return response.json();
+    };
+
+    Promise.all([fetchJson('/api/gtnh'), fetchJson('/api/item-names')])
+      .then(([files, itemNames]) => {
+        const { chapters, placedQuestMap } = assemble(files, itemNames);
+        allChapters = chapters;
+        globalQuestMap = placedQuestMap;
+        document.getElementById('total-stats').textContent = `${placedQuestMap.size} quests`;
+        if (chapters.length) selectChapter(0);
+      })
+      .catch(error => {
+        console.error('Failed to load questbook data:', error);
+        document.getElementById('total-stats').textContent = 'Failed to load questbook data';
+      });
+  </script>
+</body>
+</html>
