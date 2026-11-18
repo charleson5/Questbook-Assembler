@@ -1060,7 +1060,7 @@
         return `
           <div class="ch-item ${idx === currentChapterIdx ? 'active' : ''}" data-idx="${idx}">
             <span class="ch-num">${idx + 1}.</span>
-            <img class="ch-icon" src="/assets/chapter-icons/290/${escapeHtml(ch.folder.split('-')[0])}.webp" alt="" />
+            <img class="ch-icon" src="./assets/chapter-icons/290/${escapeHtml(ch.folder.split('-')[0])}.webp" alt="" />
             <span class="ch-name" title="${escapeHtml(ch.cleanTitle)}">${escapeHtml(ch.cleanTitle)}</span>
             <span class="ch-count">${countLabel}</span>
           </div>`;
@@ -1197,7 +1197,7 @@
         </div>
 
         <div class="q-title-row">
-          ${q.iconId ? `<img class="q-title-icon" src="/assets/quest-icons/290/${escapeHtml(q.iconId)}.webp" alt="" />` : ''}
+          ${q.iconId ? `<img class="q-title-icon" src="./assets/quest-icons/290/${escapeHtml(q.iconId)}.webp" alt="" />` : ''}
           <h2 class="q-title">${formatMcHtml(q.rawTitle)}</h2>
         </div>
 
@@ -1279,7 +1279,7 @@
         const iconInset = Math.max(7, Math.min(14, w * 0.16));
         const iconSize = w - iconInset * 2;
         const iconHtml = q.iconId
-          ? `<image class="quest-icon" href="/assets/quest-icons/290/${escapeHtml(q.iconId)}.webp" x="${iconInset}" y="${Math.max(5, iconInset * 0.55)}" width="${iconSize}" height="${iconSize}" preserveAspectRatio="xMidYMid meet"/>`
+          ? `<image class="quest-icon" href="./assets/quest-icons/290/${escapeHtml(q.iconId)}.webp" x="${iconInset}" y="${Math.max(5, iconInset * 0.55)}" width="${iconSize}" height="${iconSize}" preserveAspectRatio="xMidYMid meet"/>`
           : '';
         const shapeSvg = q.isMain
           ? `<polygon class="shape" points="${w/2},0 ${w},${h*0.25} ${w},${h*0.75} ${w/2},${h} 0,${h*0.75} 0,${h*0.25}"/>`
@@ -1417,12 +1417,12 @@
     });
 
     const fetchJson = async (url) => {
-      const response = await fetch("./gtnh-data.json");
+      const response = await fetch(url);
       if (!response.ok) throw new Error(`Request failed (${response.status}): ${url}`);
       return response.json();
     };
 
-    Promise.all([fetchJson('/api/gtnh'), fetchJson('/api/item-names')])
+    Promise.all([fetchJson('./gtnh-data.json'), fetchJson('./assets/item-names/290.json')])
       .then(([files, itemNames]) => {
         const { chapters, placedQuestMap } = assemble(files, itemNames);
         allChapters = chapters;
